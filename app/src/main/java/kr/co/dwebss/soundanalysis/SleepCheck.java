@@ -1,10 +1,13 @@
 package kr.co.dwebss.soundanalysis;
 
 
+import android.util.Log;
+
 import java.util.ArrayList;
 import java.util.List;
 
 public class SleepCheck {
+    private static final String LOG_TAG3 = "SleepCheck";
 
     static double decibelSumCnt = 0;
 
@@ -115,7 +118,6 @@ public class SleepCheck {
     static int grindingRepeatOnceAmpCnt;
     static int continueCntInChkTermForGrinding;
     static int continueCntInChkTermForGrindingChange;
-    static double[] allFHAndDB = null;
     static double tmpMaxDb = 0;
     static double tmpMinDb = 99999;
     static boolean soundStartInRecording = false;
@@ -132,7 +134,11 @@ public class SleepCheck {
     static boolean isBreathTerm = false;
     static double OSAcurTermTime = 0.0;
 
-    public static int snoringCheck(double decibel, double times, List<StartEnd> snoringTermList, List<StartEnd> grindingTermList, AnalysisRawData maxARD){
+    public static int allFHAndDb_NEED_INITIALIZE = 2;
+    public static int CHECKED_COMPLETE = 1;
+    public static int CHECKED_ERROR = 0;
+    public static int CHECKED_STATUS = 0;
+    public static int snoringCheck(double[] allFHAndDB, double decibel, double times, List<StartEnd> snoringTermList, List<StartEnd> grindingTermList, AnalysisRawData maxARD){
         //이갈이 음파가 매우 짧기 때문에, 코골이의 로직과 분리해야한다. 코골이는 0.16초 단위로 분석, 이갈이는 0.01초로 분석해야함
         //코골이의 음파 길이 및 음파가 아닌 경우의 1초 범위까지 기록 하고 있음으로, 코골이가 아닌 경우에 이갈이인지 체크하도록 한다.
         //이갈이는 1초 이내에 여러번 발생하며, 발생시에 0.02~0.03초의 연속된 짧고 높은 진폭이 발생한다.이 카운트가 1초에 5회 미만인 것만 뽑아낸다. //
@@ -231,7 +237,8 @@ public class SleepCheck {
                 if(soundStartInRecording==true) {
                     if(snoringTermList == null || snoringTermList.size()==0){
                         soundStartInRecording = false;
-                        return 0;
+                        CHECKED_STATUS = CHECKED_ERROR;
+                        return CHECKED_ERROR;
                     }
                     //음파 진행 중이라면, 지금 체크중인 체크 시작시간이 1초를 넘었는지 체크한다.
                     if(times-snoringTermList.get(snoringTermList.size()-1).start>0.16*7){
@@ -329,10 +336,13 @@ public class SleepCheck {
                 // baos.write(frameBytes);
 
             }
-            allFHAndDB = null;
+            //allFHAndDB = null;
+            CHECKED_STATUS = allFHAndDb_NEED_INITIALIZE;
+            return allFHAndDb_NEED_INITIALIZE;
         }else {
         }
-    return 1;
+        CHECKED_STATUS = CHECKED_COMPLETE;
+        return CHECKED_COMPLETE;
     }
     public static int osaCheck(double decibel, double times, List<StartEnd> osaTermList, List<StartEnd> snoringTermList){
         //if (decibel > SleepCheck.getMinDB()*0.45) {
@@ -355,8 +365,12 @@ public class SleepCheck {
                         isOSATermTimeOccur = false;
                         isBreathTermCnt = 0;
                         isBreathTerm = true;
-                        osaTermList.get(osaTermList.size()-1).end=times;
-                        osaTermList.get(osaTermList.size()-1).chk=0;
+                        if(osaTermList!=null&&osaTermList.size()>0) {
+                            osaTermList.get(osaTermList.size() - 1).end = times;
+                            osaTermList.get(osaTermList.size() - 1).chk = 0;
+                        }else{
+                            Log.e(LOG_TAG3,"osaTermList!=null && osaTermList.size()>0, line 252");
+                        }
                         osaContinueCnt = 0;
                     }else {
                         if(osaContinueCnt!=0) {
@@ -424,6 +438,7 @@ public class SleepCheck {
                 osaTermList.remove(osaTermList.size()-1);
             }
         }
-        return 1;
+        CHECKED_STATUS = CHECKED_COMPLETE;
+        return CHECKED_COMPLETE;
     }
 }
