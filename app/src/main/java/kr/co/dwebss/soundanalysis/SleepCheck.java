@@ -289,7 +289,8 @@ public class SleepCheck {
                             //코골이 카운트가 증가한 적이 없었다.
                             //코골이 기록 vo 대신 이갈이 기록 vo로 넣는다.
                             //이갈이는 원본 로직대로 한다.
-                            if(continueCntInChkTermForGrindingChange > 0 && continueCntInChkTermForGrinding> 0 &&
+                            if(soundStartAndSnroingOppCnt < 100 &&
+                                    continueCntInChkTermForGrindingChange > 0 && continueCntInChkTermForGrinding> 0 &&
                                     firstDecibelAvg > tmpMaxDb/2 &&
                                     Math.abs(firstDecibelAvg - secondDecibelAvg)<5 &&
                                     //grindingChange가 3이상일 때는, / 가 10보다 크고 12보다 작아야함

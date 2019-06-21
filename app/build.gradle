@@ -36,7 +36,7 @@ task exportJar(type:Copy){
     from('build/intermediates/packaged-classes/release/')
     into('release/')
     include('classes.jar')
-    rename('classes.jar','SoundAnalysis190619.jar')
+    rename('classes.jar','SoundAnalysis.jar')
 }
 
 exportJar.dependsOn(deleteOldJar,build)
