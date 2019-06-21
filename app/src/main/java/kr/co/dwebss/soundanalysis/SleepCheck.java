@@ -118,8 +118,8 @@ public class SleepCheck {
     static int grindingRepeatOnceAmpCnt;
     static int continueCntInChkTermForGrinding;
     static int continueCntInChkTermForGrindingChange;
-    static double tmpMaxDb = 0;
-    static double tmpMinDb = 99999;
+    public static double tmpMaxDb = 0;
+    public static double tmpMinDb = 99999;
     static boolean soundStartInRecording = false;
     static double chkDBAgainInRecording = 0.0;
     static int soundStartAndSnroingCnt = 0;
@@ -176,6 +176,8 @@ public class SleepCheck {
             chkSnoringDb = getMinDB()/1.5;
         }
         if(allFHAndDB!=null) {
+            tmpMinDb = 99999;
+            tmpMaxDb = 0;
             //코골이는 임계치를 보정해서 코골이의 음파 여부를 판단한다.
             int maxDBL = allFHAndDB.length;
             maxDBL = maxDBL > 41 ? 41 : maxDBL;
@@ -190,7 +192,8 @@ public class SleepCheck {
                     tmpMinDb = allFHAndDB[m];
                 }
             }
-            if(decibel > chkSnoringDb && tmpMaxDb>40) {
+            if(decibel > chkSnoringDb) {
+                    //&& tmpMaxDb>40) {
                 //코골이 음파가 발생했음.
                 if(soundStartInRecording==false) {
                     //코골이 분석 중 이갈이 구별 하기위한 카운트 초기화, 이갈이라면 이 카운트가 매우 높아선 안된다.
@@ -259,7 +262,8 @@ public class SleepCheck {
                         }
                         //1. 5~200 주파수의 평균 데시벨보다 43~80 주파수의 평균 데시벨이 더 커야함
                         //2. 코골이 긍장 카운트 1 당, 부정카운트가 3보다 크면 안된다.(
-                        if(soundStartAndSnroingCnt > 0 && soundStartAndSnroingOppCnt<soundStartAndSnroingCnt*3) {
+                        //if(soundStartAndSnroingCnt > 0 && soundStartAndSnroingOppCnt<soundStartAndSnroingCnt*3) {
+                        if(soundStartAndSnroingCnt > 0) {
                             //코골이 카운트가 증가했었고, 코골이 기록vo에 종료 시간을 기록
                             snoringTermList.get(snoringTermList.size()-1).end = times;
                             snoringTermList.get(snoringTermList.size()-1).first = firstDecibelAvg;
@@ -344,7 +348,7 @@ public class SleepCheck {
         CHECKED_STATUS = CHECKED_COMPLETE;
         return CHECKED_COMPLETE;
     }
-    public static int osaCheck(double decibel, double times, List<StartEnd> osaTermList, List<StartEnd> snoringTermList){
+    public static int osaCheck(double decibel, double times, List<StartEnd> osaTermList, List<StartEnd> snoringTermList, List<StartEnd> noiseTermListForOsaList){
         //if (decibel > SleepCheck.getMinDB()*0.45) {
         double chkGrindingDb = getMinDB();
         if(chkGrindingDb<=-30) {
@@ -415,6 +419,23 @@ public class SleepCheck {
             osaTermList.remove(osaTermList.size()-1);
         }
 
+        //무호흡이 종료되지 않았고, 소음이 발생했다면 취소
+        if(osaTermList.size()>0 && osaTermList.get(osaTermList.size()-1).end==0) {
+            if(noiseTermListForOsaList.size()>0){
+                if(noiseTermListForOsaList.get(noiseTermListForOsaList.size()-1).start - osaTermList.get(osaTermList.size()-1).start > 0){
+                    osaTermList.remove(osaTermList.size()-1);
+                }else {
+                    noiseTermListForOsaList.remove(noiseTermListForOsaList.size()-1);
+                }
+            }else {
+            }
+            isOSATermTimeOccur = false;
+            isOSATermCnt = 0;
+            isBreathTerm = false;
+            isBreathTermCnt = 0;
+            OSAcurTermTime = 0.0;
+        }
+
         //무호흡 종료 후 녹음된 시간이 너무 짧으면 삭제한다.
         if(osaTermList.size()>0 && osaTermList.get(osaTermList.size()-1).end!=0 && times - osaTermList.get(osaTermList.size()-1).end < 5) {
             if(osaTermList.get(osaTermList.size()-1).end - osaTermList.get(osaTermList.size()-1).start < 5 ){
@@ -436,6 +457,64 @@ public class SleepCheck {
         if(osaTermList.size()>0 && osaTermList.get(osaTermList.size()-1).end!=0 && times - osaTermList.get(osaTermList.size()-1).end > 5) {
             if(osaTermList.get(osaTermList.size()-1).chk==0) {
                 osaTermList.remove(osaTermList.size()-1);
+            }
+        }
+        CHECKED_STATUS = CHECKED_COMPLETE;
+        return CHECKED_COMPLETE;
+    }
+
+    static boolean someNoiseStartInRecording = false;
+    static double someNoiseChkDBAgainInRecording = 0.0;
+    static int someNoiseStartCnt = 0;
+    static int someNoiseStartOppCnt = 0;
+    static int someNoiseDbChkCnt = 0;
+
+    public static int someNoiseCheck(double times, double amplitude, List<StartEnd> noiseTermListForOsaList){
+        //음파가 발생했음.
+        if(someNoiseStartInRecording==false) {
+            //TODO 음파 진행중일 떄의 평균 데시벨을 가지고, 음파로 인정할 소리를 한번더 구별 한다.
+            someNoiseChkDBAgainInRecording = amplitude;
+            //녹음 중에 소리가 발생했고 음파 시작은 아닌 상태, 음파 시작 상태로 변환
+            someNoiseStartInRecording = true;
+            //코골이 카운트를 초기화(음파 진행 중에 카운트 증가)
+            someNoiseStartCnt = 0;
+            //낮은 주파수 평균이 데시벨의 절반보다 낮다면 코골이 카운트 증가
+            //음파 진행 시간 동안 얼만큼 체크가 안되었는지 카운트를 해서 비교할 수 있다.
+            someNoiseStartOppCnt = 0;
+            //음파시작시간을 보관하기 위해 기록vo를 생성
+            StartEnd st = new StartEnd();
+            st.start = times;
+            st.AnalysisRawDataList = new ArrayList<AnalysisRawData>();
+            noiseTermListForOsaList.add(st);
+            //음파가 진행되는 동안 최대 데시벨과 저주파수의 데시벨의 평균을 계산하기 위해 값을 초기화 한다.
+            //최대 데시벨 값과 저주파수 데시벨 값을 저장한다.(초기화)
+            someNoiseDbChkCnt = 0;
+        }else {
+            someNoiseDbChkCnt++;
+            if(amplitude > someNoiseChkDBAgainInRecording*2) {
+                someNoiseStartCnt++;
+            }else {
+                someNoiseStartOppCnt++;
+            }
+            someNoiseChkDBAgainInRecording = amplitude;
+        }
+        if(noiseTermListForOsaList == null || noiseTermListForOsaList.size()==0){
+            someNoiseStartInRecording = false;
+            CHECKED_STATUS = CHECKED_ERROR;
+            return CHECKED_ERROR;
+        }
+        if(times-noiseTermListForOsaList.get(noiseTermListForOsaList.size()-1).start>0.16*7){
+            someNoiseStartInRecording = false;
+            System.out.println(times+" "+amplitude+someNoiseDbChkCnt+" "+someNoiseStartCnt+" "+someNoiseStartOppCnt);
+            if(someNoiseStartCnt>0){
+                //코골이 카운트가 증가했었고, 코골이 기록vo에 종료 시간을 기록
+                noiseTermListForOsaList.get(noiseTermListForOsaList.size()-1).end = times;
+                noiseTermListForOsaList.get(noiseTermListForOsaList.size()-1).first = amplitude;
+                noiseTermListForOsaList.get(noiseTermListForOsaList.size()-1).chk = someNoiseDbChkCnt;
+                noiseTermListForOsaList.get(noiseTermListForOsaList.size()-1).positiveCnt = someNoiseStartCnt;
+                noiseTermListForOsaList.get(noiseTermListForOsaList.size()-1).negitiveCnt = someNoiseStartOppCnt;
+            }else {
+                noiseTermListForOsaList.remove(noiseTermListForOsaList.size()-1);
             }
         }
         CHECKED_STATUS = CHECKED_COMPLETE;
